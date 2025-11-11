@@ -299,7 +299,7 @@ export default function AdminDashboard() {
                         <select
                           value={order.status}
                           onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                          className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${statusColors[order.status]} bg-transparent focus:outline-none`}
+                          className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${statusColors[order.status as keyof typeof statusColors]} bg-transparent focus:outline-none`}
                         >
                           <option value="Pending">Pending</option>
                           <option value="In Transit">In Transit</option>
