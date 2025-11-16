@@ -1,464 +1,500 @@
 "use client";
 
-import React, { useState } from 'react';
-import {
-  Package, Plus, Search, Filter, Edit2, Trash2,
-  Eye, Truck, Clock, CheckCircle, Users, TrendingUp,
-  X
-} from 'lucide-react';
-// import {
-//   Package, Plus, Search, Filter, MoreVertical, Edit2, Trash2,
-//   Eye, Truck, Clock, CheckCircle, XCircle, Users, TrendingUp,
-//   Calendar, MapPin, Phone, X
-// } from 'lucide-react';
+import Header from "@/components/ui/header";
+import { IOrder } from "@/models/Order";
+import { Edit2, Plus, Trash2, X, Search, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
 
-export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('orders');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [orders, setOrders] = useState([
-    {
-      id: 'TRK123456',
-      recipient: 'John Doe',
-      destination: 'Victoria Island, Lagos',
-      status: 'In Transit',
-      created: '2025-11-09',
-      estimated: '2025-11-12',
-      weight: '2.5 kg'
-    },
-    {
-      id: 'TRK123457',
-      recipient: 'Jane Smith',
-      destination: 'Ikeja, Lagos',
-      status: 'Delivered',
-      created: '2025-11-08',
-      estimated: '2025-11-10',
-      weight: '1.2 kg'
-    },
-    {
-      id: 'TRK123458',
-      recipient: 'Mike Johnson',
-      destination: 'Lekki, Lagos',
-      status: 'Pending',
-      created: '2025-11-11',
-      estimated: '2025-11-13',
-      weight: '3.8 kg'
-    },
-    {
-      id: 'TRK123459',
-      recipient: 'Sarah Williams',
-      destination: 'Surulere, Lagos',
-      status: 'Out for Delivery',
-      created: '2025-11-10',
-      estimated: '2025-11-11',
-      weight: '0.8 kg'
+const AdminPage = () => {
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<IOrder | null>(null);
+  const [orders, setOrders] = useState<IOrder[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [filteredOrders, setFilteredOrders] = useState<IOrder[]>([]);
+
+  // Fetch all orders on component mount
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  // Filter orders based on search and status
+  useEffect(() => {
+    let filtered = orders;
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (order) =>
+          order.trackingNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.recipient?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.sender?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.origin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.destination?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  ]);
 
-  const [newOrder, setNewOrder] = useState({
-    recipient: '',
-    phone: '',
-    email: '',
-    destination: '',
-    weight: '',
-    dimensions: '',
-    description: ''
-  });
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((order) => order.status === statusFilter);
+    }
 
-  const stats = [
-    { label: 'Total Orders', value: '1,234', icon: Package, color: 'from-blue-500 to-purple-500', change: '+12%' },
-    { label: 'In Transit', value: '456', icon: Truck, color: 'from-purple-500 to-pink-500', change: '+8%' },
-    { label: 'Delivered', value: '890', icon: CheckCircle, color: 'from-green-500 to-emerald-500', change: '+15%' },
-    { label: 'Pending', value: '78', icon: Clock, color: 'from-orange-500 to-red-500', change: '-3%' }
-  ];
+    setFilteredOrders(filtered);
+  }, [orders, searchTerm, statusFilter]);
 
-  const statusColors = {
-    'Pending': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-    'In Transit': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    'Out for Delivery': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-    'Delivered': 'bg-green-500/20 text-green-300 border-green-500/30',
-    'Cancelled': 'bg-red-500/20 text-red-300 border-red-500/30'
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/order");
+      const data = await response.json();
+      console.log("Data", data);
+
+      if (data.success) {
+        setOrders(data.data);
+      } else {
+        alert("Failed to fetch orders");
+      }
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      alert("Error fetching orders");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCreateOrder = () => {
-    const trackingId = `TRK${Math.floor(100000 + Math.random() * 900000)}`;
-    const order = {
-      id: trackingId,
-      recipient: newOrder.recipient,
-      destination: newOrder.destination,
-      status: 'Pending',
-      created: new Date().toISOString().split('T')[0],
-      estimated: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      weight: newOrder.weight
-    };
-    setOrders([order, ...orders]);
-    setShowCreateModal(false);
-    setNewOrder({
-      recipient: '',
-      phone: '',
-      email: '',
-      destination: '',
-      weight: '',
-      dimensions: '',
-      description: ''
-    });
+  // Delete order
+  const deleteOrder = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this order?")) return;
+
+    try {
+      const response = await fetch(`/api/order/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setOrders(orders.filter((o) => o._id !== id));
+        alert("Order deleted successfully");
+      } else {
+        alert(data.error || "Failed to delete order");
+      }
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      alert("Error deleting order");
+    }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          order.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  // Save order (create or update)
+  const saveOrder = async (order: Partial<IOrder>) => {
+    try {
+      setLoading(true);
 
-  const handleDeleteOrder = (id: string) => {
-    setOrders(orders.filter(order => order.id !== id));
+      if (editingOrder && editingOrder._id) {
+        // ===================== EDIT ORDER ===================== //
+        const response = await fetch(`/api/order/${editingOrder._id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(order),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setOrders(orders.map((o) => (o._id === editingOrder._id ? data.data : o)));
+          alert("Order updated successfully");
+        } else {
+          alert(data.error || "Failed to update order");
+        }
+      } else {
+        // ===================== CREATE NEW ORDER ================== //
+        const response = await fetch("/api/order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(order),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setOrders([data.data, ...orders]);
+          alert(`Order created successfully! Tracking Number: ${data.data.trackingNumber}`);
+        } else {
+          alert(data.error || "Failed to create order");
+        }
+      }
+
+      setShowAdminModal(false);
+      setEditingOrder(null);
+    } catch (error) {
+      console.error("Error saving order:", error);
+      alert("Error saving order");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleStatusChange = (id: string, newStatus: string) => {
-    setOrders(orders.map(order => 
-      order.id === id ? { ...order, status: newStatus } : order
-    ));
+  const OrderModal = () => {
+    const [formData, setFormData] = useState<Partial<IOrder>>(
+      editingOrder || {
+        trackingNumber: "",
+        status: "pending",
+        origin: "",
+        destination: "",
+        sender: "",
+        recipient: "",
+        weight: "",
+        estimatedDelivery: "",
+        events: [],
+      }
+    );
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editingOrder ? "Edit Order" : "Add New Order"}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAdminModal(false);
+                  setEditingOrder(null);
+                }}
+              >
+                <X className="w-6 h-6 text-gray-400 hover:text-gray-600" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Tracking Number - Only show when editing */}
+              {editingOrder && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tracking Number
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.trackingNumber}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Tracking number is auto-generated and cannot be edited
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        status: e.target.value as IOrder["status"],
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in_transit">In Transit</option>
+                    <option value="out_for_delivery">Out for Delivery</option>
+                    <option value="delivered">Delivered</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Weight
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.weight}
+                    onChange={(e) =>
+                      setFormData({ ...formData, weight: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="2.5 kg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Origin
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.origin}
+                    onChange={(e) =>
+                      setFormData({ ...formData, origin: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="New York, NY, USA"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Destination
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.destination}
+                    onChange={(e) =>
+                      setFormData({ ...formData, destination: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="London, UK"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sender
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.sender}
+                    onChange={(e) =>
+                      setFormData({ ...formData, sender: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="John Smith"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Recipient
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.recipient}
+                    onChange={(e) =>
+                      setFormData({ ...formData, recipient: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Emma Wilson"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Estimated Delivery
+                </label>
+                <input
+                  type="date"
+                  value={formData.estimatedDelivery}
+                  onChange={(e) =>
+                    setFormData({ ...formData, estimatedDelivery: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowAdminModal(false);
+                    setEditingOrder(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => saveOrder(formData)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
+                  disabled={loading}
+                >
+                  {loading ? "Saving..." : "Save Order"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
 
-      {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-64 bg-white/10 backdrop-blur-xl border-r border-white/20 z-20">
-        <div className="p-6">
-          <div className="flex items-center space-x-2 mb-8">
-            <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-              <Truck className="text-white" size={24} />
-            </div>
-            <div>
-              <span className="text-xl font-bold text-white block">SwiftShip</span>
-              <span className="text-xs text-gray-400">Admin Panel</span>
-            </div>
-          </div>
-
-          <nav className="space-y-2">
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition ${
-                activeTab === 'orders' 
-                  ? 'bg-linear-to-r from-purple-500 to-blue-500 text-white' 
-                  : 'text-gray-300 hover:bg-white/5'
-              }`}
-            >
-              <Package size={20} />
-              <span>Orders</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition ${
-                activeTab === 'analytics' 
-                  ? 'bg-linear-to-r from-purple-500 to-blue-500 text-white' 
-                  : 'text-gray-300 hover:bg-white/5'
-              }`}
-            >
-              <TrendingUp size={20} />
-              <span>Analytics</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('customers')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition ${
-                activeTab === 'customers' 
-                  ? 'bg-linear-to-r from-purple-500 to-blue-500 text-white' 
-                  : 'text-gray-300 hover:bg-white/5'
-              }`}
-            >
-              <Users size={20} />
-              <span>Customers</span>
-            </button>
-          </nav>
-        </div>
-
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <div className="bg-white/5 rounded-xl p-4">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                A
-              </div>
-              <div>
-                <p className="text-white font-semibold text-sm">Admin User</p>
-                <p className="text-gray-400 text-xs">admin@swiftship.com</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search and Filter Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search Input */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search by tracking number, recipient, sender, or location..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="ml-64 relative z-10">
-        {/* Header */}
-        <div className="px-8 py-6 border-b border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-1">Order Management</h1>
-              <p className="text-gray-400">Manage and track all your deliveries</p>
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="text-gray-400 w-5 h-5" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="in_transit">In Transit</option>
+                <option value="out_for_delivery">Out for Delivery</option>
+                <option value="delivered">Delivered</option>
+              </select>
             </div>
+
+            {/* Add Order Button */}
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center space-x-2 px-6 py-3 bg-linear-to-r from-purple-500 to-blue-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-blue-600 transition transform hover:scale-105"
+              onClick={() => setShowAdminModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
             >
-              <Plus size={20} />
-              <span>Create Order</span>
+              <Plus className="w-5 h-5" />
+              Add Order
             </button>
+          </div>
+
+          {/* Results Count */}
+          <div className="mt-3 text-sm text-gray-600">
+            Showing {filteredOrders.length} of {orders.length} orders
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, idx) => (
-              <div key={idx} className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 hover:bg-white/15 transition group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-12 h-12 bg-linear-to-br ${stat.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition`}>
-                    <stat.icon className="text-white" size={24} />
-                  </div>
-                  <span className={`text-sm font-semibold ${
-                    stat.change.startsWith('+') ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {stat.change}
-                  </span>
-                </div>
-                <p className="text-gray-400 text-sm mb-1">{stat.label}</p>
-                <p className="text-3xl font-bold text-white">{stat.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Orders Table */}
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-            {/* Table Header */}
-            <div className="p-6 border-b border-white/10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by tracking ID or recipient..."
-                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-                <div className="flex items-center space-x-3">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple-500 transition"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="Pending">Pending</option>
-                    <option value="In Transit">In Transit</option>
-                    <option value="Out for Delivery">Out for Delivery</option>
-                    <option value="Delivered">Delivered</option>
-                  </select>
-                  <button className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition">
-                    <Filter className="text-gray-400" size={20} />
-                  </button>
-                </div>
-              </div>
+        {/* Orders Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-gray-500">Loading orders...</div>
             </div>
-
-            {/* Table Content */}
+          ) : filteredOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="text-gray-500 mb-2">No orders found</div>
+              {(searchTerm || statusFilter !== "all") && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                  }}
+                  className="text-blue-600 hover:text-blue-700 text-sm"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-white/5">
+                <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">Tracking ID</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">Recipient</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">Destination</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">Created</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">Weight</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tracking Number
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Origin
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Destination
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Recipient
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {filteredOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-white/5 transition">
-                      <td className="px-6 py-4">
-                        <span className="text-white font-mono font-semibold">{order.id}</span>
+                    <tr key={order._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {order.trackingNumber}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-white">{order.recipient}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-300 text-sm">{order.destination}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <select
-                          value={order.status}
-                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                          className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${statusColors[order.status as keyof typeof statusColors]} bg-transparent focus:outline-none`}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            order.status === "delivered"
+                              ? "bg-green-100 text-green-800"
+                              : order.status === "in_transit"
+                              ? "bg-blue-100 text-blue-800"
+                              : order.status === "out_for_delivery"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
                         >
-                          <option value="Pending">Pending</option>
-                          <option value="In Transit">In Transit</option>
-                          <option value="Out for Delivery">Out for Delivery</option>
-                          <option value="Delivered">Delivered</option>
-                          <option value="Cancelled">Cancelled</option>
-                        </select>
+                          {order.status.replace("_", " ")}
+                        </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-400 text-sm">{order.created}</span>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {order.origin}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-300 text-sm">{order.weight}</span>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {order.destination}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button className="p-2 hover:bg-white/10 rounded-lg transition" title="View Details">
-                            <Eye className="text-gray-400" size={18} />
-                          </button>
-                          <button className="p-2 hover:bg-white/10 rounded-lg transition" title="Edit">
-                            <Edit2 className="text-gray-400" size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteOrder(order.id)}
-                            className="p-2 hover:bg-red-500/20 rounded-lg transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="text-red-400" size={18} />
-                          </button>
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {order.recipient}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => {
+                            setEditingOrder(order);
+                            setShowAdminModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900 mr-4"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteOrder(order._id!)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {filteredOrders.length === 0 && (
-              <div className="p-12 text-center">
-                <Package className="mx-auto text-gray-500 mb-4" size={48} />
-                <p className="text-gray-400">No orders found</p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Create Order Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 rounded-3xl border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-slate-900">
-              <h2 className="text-2xl font-bold text-white">Create New Order</h2>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition"
-              >
-                <X className="text-gray-400" size={24} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-400 mb-2">Recipient Name</label>
-                  <input
-                    type="text"
-                    value={newOrder.recipient}
-                    onChange={(e) => setNewOrder({...newOrder, recipient: e.target.value})}
-                    placeholder="John Doe"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-400 mb-2">Phone Number</label>
-                  <input
-                    type="tel"
-                    value={newOrder.phone}
-                    onChange={(e) => setNewOrder({...newOrder, phone: e.target.value})}
-                    placeholder="+234 123 456 7890"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-400 mb-2">Email Address</label>
-                <input
-                  type="email"
-                  value={newOrder.email}
-                  onChange={(e) => setNewOrder({...newOrder, email: e.target.value})}
-                  placeholder="john@example.com"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-400 mb-2">Destination Address</label>
-                <input
-                  type="text"
-                  value={newOrder.destination}
-                  onChange={(e) => setNewOrder({...newOrder, destination: e.target.value})}
-                  placeholder="15 Marina Road, Victoria Island, Lagos"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-400 mb-2">Weight</label>
-                  <input
-                    type="text"
-                    value={newOrder.weight}
-                    onChange={(e) => setNewOrder({...newOrder, weight: e.target.value})}
-                    placeholder="2.5 kg"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-400 mb-2">Dimensions</label>
-                  <input
-                    type="text"
-                    value={newOrder.dimensions}
-                    onChange={(e) => setNewOrder({...newOrder, dimensions: e.target.value})}
-                    placeholder="30 x 20 x 15 cm"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-400 mb-2">Package Description</label>
-                <textarea
-                  value={newOrder.description}
-                  onChange={(e) => setNewOrder({...newOrder, description: e.target.value})}
-                  placeholder="Electronics Package"
-                  rows={3}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-white/10 flex justify-end space-x-3 sticky bottom-0 bg-slate-900">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-6 py-3 bg-white/5 text-white rounded-xl font-semibold hover:bg-white/10 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateOrder}
-                className="px-6 py-3 bg-linear-to-r from-purple-500 to-blue-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-blue-600 transition"
-              >
-                Create Order
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showAdminModal && <OrderModal />}
     </div>
   );
-}
+};
+
+export default AdminPage;
