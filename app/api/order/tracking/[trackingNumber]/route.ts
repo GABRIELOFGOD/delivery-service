@@ -3,7 +3,7 @@
 // app/api/orders/tracking/[trackingNumber]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import Order from '@/models/Order';
+import Order from '@/models/order';
 
 // GET - Track order by tracking number
 export async function GET(
